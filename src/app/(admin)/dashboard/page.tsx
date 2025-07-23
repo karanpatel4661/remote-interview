@@ -1,3 +1,4 @@
+// src/app/(admin)/dashboard/page.tsx
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
@@ -19,8 +20,25 @@ import { useUser } from "@clerk/nextjs";
 type Interview = Doc<"interviews">;
 
 function DashboardPage() {
-  const { user } = useUser();
-   if (!user) return <div>Please log in</div>;
+  const { user, isLoaded } = useUser(); // Get both 'user' and 'isLoaded' from Clerk
+
+  // --- CRITICAL AUTHENTICATION CHECKS ---
+  // Step 1: If Clerk is still loading the user session, show a loader.
+  // This prevents any authenticated Convex queries from even being initialized prematurely.
+  if (!isLoaded) {
+    return <LoaderUI />;
+  }
+
+  // Step 2: If Clerk has finished loading (isLoaded is true) but no 'user' object is available,
+  // it means the user is not logged in. Prompt them to log in.
+  if (!user) {
+    return <div>Please log in</div>;
+  }
+  // --- END CRITICAL AUTHENTICATION CHECKS ---
+  
+  // Now that 'user' is guaranteed to be loaded and present,
+  // we can safely make the Convex queries that require authentication.
+  // The 'enabled' flag is implicitly handled by these checks above.
   const users = useQuery(api.users.getUsers);
   const interviews = useQuery(api.interviews.getAllInterviews);
   const updateStatus = useMutation(api.interviews.updateInterviewStatus);
@@ -34,6 +52,7 @@ function DashboardPage() {
     }
   };
 
+  // Show a loader while the Convex data is being fetched (after Clerk has loaded).
   if (!interviews || !users) return <LoaderUI />;
 
   const groupedInterviews = groupInterviews(interviews);
